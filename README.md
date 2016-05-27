@@ -4,6 +4,7 @@ Let's learn about the new [clojure spec](http://clojure.org/guides/spec)
 
 ## Useful links
 
+- [rational of spec](http://clojure.org/about/spec)
 - [spec-play](https://github.com/frenchy64/spec-play)
 
 ## License
