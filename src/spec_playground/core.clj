@@ -1,5 +1,5 @@
 (ns spec-playground.core
-  (:require [clojure.core.async :refer [sub]]
+  (:require [clojure.spec.test :as stest]
             [clojure.spec :as s]))
 
 ;; From: http://clojure.org/guides/spec
@@ -83,13 +83,17 @@
 
 (s/conform ::odds-then-maybe-even [1 3 5 100])
 ;; {:odds [1 3 5], :even 100}
+
 (s/conform ::odds-then-maybe-even [1])
 ;; {:odds [1]}
+
 (s/explain ::odds-then-maybe-even [100]) ;; nil
 
 ;; opts are alternating keywords and booleans
 (defn boolean? [b] (instance? Boolean b))
+
 (s/def ::opts (s/* (s/cat :opt keyword? :val boolean?)))
+
 (s/conform ::opts [:silent? false :verbose true])
 ;; [{:opt :silent?, :val false} {:opt :verbose, :val true}]
 
@@ -102,18 +106,18 @@
                      "-user" "joe"])
 ;; [{:prop "-server", :val [:s "foo"]} {:prop "-verbose", :val [:b true]} {:prop "-user", :val [:s "joe"]}]
 
-(s/describe ::seq-of-keywords) ;;=> (* keyword?)
-(s/describe ::odd-then-maybe-even)
-;;=> (cat :odds (+ odd?) :even (? even?))
+(s/describe ::seq-of-keywords) ;; (* keyword?)
+(s/describe ::odds-then-maybe-even)
+;; (cat :odds (+ odd?) :even (? even?))
 
 (s/describe ::opts)
 ;; (* (cat :opt keyword? :val boolean?))
 
-;; Regex operators
+;; Regex operators that combine two expression
 (s/def ::even-strings (s/& (s/* string?) #(even? (count %))))
 
-(s/valid? ::even-strings ["a"]) ;; false
-(s/valid? ::even-strings ["a" "b"]) ;; true
+(s/valid? ::even-strings ["a"])         ;; false
+(s/valid? ::even-strings ["a" "b"])     ;; true
 (s/valid? ::even-strings ["a" "b" "c"]) ;; false
 
 ;; If we use spec
@@ -122,6 +126,7 @@
          :names (s/spec (s/* string?))
          :nums-kw #{:nums}
          :nums (s/spec (s/* number?))))
+
 (s/conform ::nested [:names ["a" "b"]
                      :nums [1 2 3]])
 ;; {:names-kw :names, :names ["a" "b"], :nums-kw :nums, :nums [1 2 3]}
@@ -206,22 +211,25 @@
   (s/keys :req [:event/type :event/timestamp :error/message :error/code]))
 
 (s/def :event/event (s/multi-spec event-type :event/type))
+
 (s/valid? :event/event
           {:event/type :event/search
            :event/timestamp 12343243434
            :search/url "http://clojure.org"}) ;; true
+
 (s/valid? :event/event
           {:event/type :event/search
            :event/timestamp 12343243434
            :error/message "Invalid host"
            :error/code 500}) ;; false
+
 (s/conform :event/event
            {:event/type :event/search
             :search/url 200}) ;; :clojure.spec/invalid
 
 ;; Collections : coll-of, tuple, and map-of
-(s/conform (s/coll-of keyword? []) [:a :b :c]) ;; [:a :b :c]
-(s/conform (s/coll-of number? #{}) #{5 10 2}) ;; #{2 5 10}
+(s/conform (s/coll-of keyword?) [:a :b :c]) ;; [:a :b :c]
+(s/conform (s/coll-of number?) #{5 10 2}) ;; #{2 5 10}
 
 ;(s/def ::point (s/tuple double? double? double?))
 
@@ -240,17 +248,7 @@
 
 (person-name {::first-name "Elon"
               ::last-name "Musk"
-              ::email "elon@example.com"})  ;; "Elon Musk"
-
-;; complex setup example
-;; (defn configure
-;;   [input]
-;;   (let [parsed (s/conform ::config input)]
-;;     (if (= parsed ::s/invalid)
-;;       (throw (ex-info "Invalid input" (s/explain-data ::config input)))
-;;       (for [{prop :prop [_ val] :val} parsed]
-;;         (set-config (sub prop 1) val)))))
-;; (configure ["--server" "foo" "-verbose" true "-user" "joe"])
+              ::email "elon@example.com"}) ;; "Elon Musk"
 
 ;; Spec'ing functions
 (defn ranged-rand
@@ -266,49 +264,32 @@
         :fn (s/and #(>= (:ret %) (-> % :args :start))
                    #(< (:ret %) (-> % :args :end))))
 
-;; turn on instrumentation (spec checking) with:
-(s/instrument #'ranged-rand)
-;(ranged-rand 8 5)
+;; Turn on instrumentation (spec checking) with:
+(stest/instrument `ranged-rand)
 
-;; => 1. Unhandled clojure.lang.ExceptionInfo
-;; Call to #'spec-playground.core/ranged-rand did not conform to spec: At:
-;; [:args] val: {:start 8, :end 5} fails predicate: (< (:start %) (:end %))
-;; :clojure.spec/args (8 5)
-;; {:clojure.spec/problems {[:args] {:pred (< (:start %) (:end %)), :val {:start 8, :end 5}, :via []}}, :clojure.spec/args (8 5)}
-;; ...
-
-(defn ranged-rand ;; BROKEN!!
-  "Returns random integer in range start <= rand < end"
-  [start end]
-  (+ start (rand-int (- start end)))) ;; NOTE: the correct way should be (- end start)
-
-;(ranged-rand 3 8) ;; can return incorrect result without the (s/instrument #..)
-; but will raise error if we turn the instrumentation on!
-
-;; see also (doc instrument-ns), (doc instrument-all)
+(#_
+ (ranged-rand 8 5)) ;; This gave errors when run
 
 ;; Higher order functions with fspec
 (defn adder [x] #(+ x %))
+
 (s/fdef adder
         :args (s/cat :x number?)
         :ret (s/fspec :args (s/cat :y number?)
                       :ret number?)
         :fn #(= (-> % :args :x) ((:ret %) 0)))
 
-;; Macros
-
-(s/fdef clojure.core/declare
-        :args (s/cat :names (s/* symbol?))
-        :ret ::s/any)
-;(declare 100) ;; raise CompilerException..
-
 ;; Conformers
 (s/def ::name-or-id (s/or :name string?
                           :id integer?))
+
 (s/conform ::name-or-id "abc") ;; [:name "abc"]
 
 (s/def ::name-or-id
   (s/and ::name-or-id
          (s/conformer second)))
 
-(s/conform ::name-or-id "abc")
+;; See: https://clojure.org/guides/spec#_instrumentation_and_testing
+;; Testing
+
+(stest/check `range-rand)

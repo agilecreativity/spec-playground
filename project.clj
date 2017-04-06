@@ -1,6 +1,6 @@
 (defproject spec-playground "0.1.0-SNAPSHOT"
-  :description "FIXME: write description"
-  :url "http://example.com/FIXME"
+  :description "Playing with Clojure Spec"
+  :url "http://github.com/agilecreativity/spec-playground/"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.9.0-alpha1"]])
+  :dependencies [[org.clojure/clojure "1.9.0-alpha15"]])
