@@ -163,3 +163,30 @@
                          ::host "example.com"
                          ::port 123
                          :other "xyz"])
+(do
+  (s/def :animal/kind string?)
+  (s/def :animal/says string?)
+  (s/def :animal/common (s/keys :req [:animal/kind :animal/says]))
+
+  (s/def :dog/tail? boolean?)
+  (s/def :dog/breed string?)
+  (s/def :animal/dog (s/merge :animal/common
+                              (s/keys :req [:dog/tail?
+                                            :dog/breed]))))
+(s/conform :animal/dog
+           {:animal/kind "dog"
+            :animal/says "woof"
+            :dog/tail? true
+            :dog/breed "retriever"})
+
+;; {:animal/kind "dog", :animal/says "woof", :dog/tail? true, :dog/breed "retriever"}
+(s/valid? :animal/dog
+          {:animal/kind "dog"
+           :animal/says "woof"
+           :dog/tail? true
+           :dog/breed "retriever"})
+
+;; true
+
+;; Multi-spec (to-be-continue)
+;; see: https://clojure.org/guides/spec
