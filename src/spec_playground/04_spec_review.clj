@@ -66,3 +66,100 @@
 (s/explain-str ::name-or-id :foo) ;; "val: :foo fails spec: :spec-playground.04-spec-review/name-or-id at: [:name] predicate: string?\nval: :foo fails spec: :spec-playground.04-spec-review/name-or-id at: [:id] predicate: int?\n"
 
 ;; Entity Maps (to be continue)
+(def email-regex #"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,63}$")
+
+(s/def ::email-type (s/and string?
+                           #(re-matches email-regex %)))
+(s/def ::acctid int?)
+(s/def ::first-name string?)
+(s/def ::last-name string?)
+(s/def ::email ::email-type)
+
+(s/def ::person (s/keys :req [::first-name
+                              ::last-name
+                              ::email]
+                        :opt [::phone]))
+
+
+(s/valid?  ::person
+           {::first-name "Elon"
+            ::last-name "Musk"
+            ::email "elon@example.com"}) ;; true
+
+(s/valid? ::person
+          {::first-name "Elon"
+           ::last-name "Musk"
+           }) ;; false
+
+;; How we use spec in real application
+(if (s/valid? ::person
+              {::first-name "Elon"
+               ::last-name "Mustk"
+               ;; ::email "elon@example.com"
+               })
+  "we have valid person"
+  "Invalid person"
+  )
+
+(s/def :unq/person
+  (s/keys :req-un [::first-name
+                   ::last-name
+                   ::email]
+          :opt-un [::phone]))
+
+(s/conform :unq/person
+           {:first-name "Elon"
+            :last-name "Musk"
+            :email "mail@example.com"})
+;; {:first-name "Elon", :last-name "Musk", :email "mail@example.com"}
+
+(s/conform :unq/person
+           {;;:first-name "Elon"
+            :last-name "Musk"
+            :email "mail@example.com"})
+;; :clojure.spec.alpha/invalid
+
+(s/explain :unq/person
+           {:first-name "Elon"}) ;;=> nil
+;; See the REPL
+;; REPL: val: {:first-name "Elon"} fails spec: :unq/person predicate: (contains? % :email)
+
+;; Use for validating record attribute
+(defrecord person [first-name last-name email phone])
+;; spec_playground.04_spec_review.person
+
+(s/explain-str :unq/person
+               (->person "Elon"
+                         nil ;; last-name
+                         nil
+                         nil))
+
+;; "In: [:last-name] val: nil fails spec: :spec-playground.04-spec-review/last-name at: [:last-name] predicate: string?\nIn: [:email] val: nil fails spec: :spec-playground.04-spec-review/email-type at: [:email] predicate: string?\n"
+
+(s/conform :unq/person
+           (->person "Elon"
+                     nil ;; last-name
+                     nil
+                     nil))
+
+;; :clojure.spec.alpha/invalid
+
+;; Keyword arguments
+(s/def ::port number?)
+(s/def ::host string?)
+(s/def ::id keyword?)
+(s/def ::server (s/keys* :req [::id ::host]
+                         :opt [::port]))
+(s/conform ::server [::id :server-1
+                     ::host "example.com"
+                     ])
+;; #:spec-playground.04-spec-review{:id :server-1, :host "example.com"}
+(s/conform ::server [::id :server-1
+                     ::host "example.com"
+                     ::port 123])
+;; #:spec-playground.04-spec-review{:id :server-1, :host "example.com", :port 123}
+
+(s/explain-str ::server [::id :server-1
+                         ::host "example.com"
+                         ::port 123
+                         :other "xyz"])
